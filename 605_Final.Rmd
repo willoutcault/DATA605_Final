@@ -1,0 +1,85 @@
+# Creating the Distributions 
+
+```{r}
+n <- 10
+X <- runif(10000, min=1, max=n)
+hist(X)
+mn <- (n+1)/2
+Y <- rnorm(10000, mean = mn, sd = mn)
+hist(Y)
+x <- median(X)
+y <-  as.numeric(summary(y)[2])
+
+```
+
+## Distribution Probabilites 
+
+```{r}
+a <- round(length(X[X > x]) / length(X[X>y]),4)
+
+b <- round(length(X[X > x & Y > y]) / length(X),4)
+
+c <- round(length(X[X < x & X > y]) / length(X),4)
+```
+
+## Contingency Table
+
+```{r}
+rownames = c('P(X>x)','P(X<=x)','Total')
+colnames = c('P(Y>y)','P(Y<=y)','Total')
+r1c1 = length(X[X > x & Y > y])
+r2c1 = length(X[X <= x & Y > y])
+r3c1 = r1c1 + r2c1
+r1c2 = length(X[X > x & Y <= y])
+r2c2 = length(X[X <= x & Y <= y])
+r3c2 = r1c2 + r2c2
+r1c3 = r1c1 + r1c2
+r2c3 = r2c1 + r2c2
+r3c3 = r1c3 + r2c3
+m <- matrix(c(r1c1,r2c1,r3c1,r1c2,r2c2,r3c2,r1c3,r2c3,r3c3),nrow = 3,byrow=TRUE, dimnames=list(rownames,colnames))
+test <- (length(X[X>x])/length(X))*(length(X[Y>y])/length(Y))
+m 
+```
+
+Investigate whether $P(X>x, Y>y)=P(X>x)P(Y>y)$ by building a table and evaluating the marginal and joint probabilities.
+
+We determined that $P(X>x, Y>y) = 0.3715$. However $P(X>x)P(Y>y)=0.3741$
+
+## Testing Independence
+
+### Hypotheses
+
+H0: The variables are independent, and there is no relationship between variables.
+H1: The variables are dependent, there is a relationship between variables.
+
+### Expected Frequencies
+
+Fisher's exact test should be used given a small sample size (specifically when expected values of the contingecy table falls below 5). Adversely Chi-square test is used when you have a large enough sample size.
+
+Fisher's exact test should not be used for larger sample sizes, over Chi-square tests largely because it is too conservative and can be misleading. However the conservative nature of the Fisher's exact test provides better feedback than using Chi-square test on the same small sample.
+
+We see our frequency counts are well above 5 in our contigency table, therefore we will test using the chisq.test function. It is worth noting that if the sample size is to small, our function will produce a warning about inaccuracy, at which point we would use Fisher's exact test.
+
+### Chi-squared test
+
+```{r}
+m2 <- m[-3,-3]
+chisq.test(m2)
+```
+
+As expected our function did not produce a warning. We see our p-value from the Chi-squared test was greater than our threshold 0.05 therefore we fail to reject our null-hypothesis.
+
+### Fisher's exact test
+
+```{r}
+fisher.test(m2)
+```
+
+Our p-value was the same using the Fisher's exact test. If our sample size was larger however, we would find this test to be computationally impractical.
+
+# Advanced Regression for Housing Prices
+
+```{r}
+df <- read.csv('train.csv', TRUE, ",")
+```
+
