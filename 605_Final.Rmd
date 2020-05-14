@@ -79,7 +79,75 @@ Our p-value was the same using the Fisher's exact test. If our sample size was l
 
 # Advanced Regression for Housing Prices
 
+## Descriptive and Inferenctial Statistics
+
 ```{r}
-df <- read.csv('train.csv', TRUE, ",")
+train <- read.csv('https://raw.githubusercontent.com/willoutcault/DATA605_Final/master/train.csv', TRUE, ",")
+test <- read.csv('https://raw.githubusercontent.com/willoutcault/DATA605_Final/master/test.csv', TRUE, ",")
 ```
 
+### Data Overview
+
+```{r}
+library(ggplot2)
+library(corrplot)
+library(RColorBrewer)
+library(dplyr)
+
+glimpse(train)
+```
+
+Using Dplyr's glimpse function allows us to view each columns data type as well as the size of the data frame. We are working with a 1460x81 training set. After scrolling through each feature I found a few that I felt might have a correlation with Sales Price.
+
+### Correlation
+
+```{r}
+pairs(train[ , c(18,44,47,63,81)], pch=20, col = "#69b3a2")
+```
+
+We notice a positive correlation between out features and our dependent variable, SalePrice. Using these same variables lets visualize a correlation plot.
+
+```{r}
+train_sub <- cor(train[, c(18,44,47,63,81)])
+
+corrplot(train_sub, method = "number", type="upper")
+```
+
+Out of the independent variables we picked we see OverallQall with the strongest correlation and all correlations are positive. Next we will test the significance of each correlation significant.
+
+### Hypothesis Testing
+
+We want to test to see if these correlations are significant using the Pearson correlation test. We will use a confidence level of 80% therefore our significance level alpha = 0.20
+
+#### Null Hypothesis
+
+H0: The variables are independent, and there is no correlation between variables.
+H1: The variables are dependent, there is a correlation between variables.
+
+#### Pearson Tests
+
+```{r}
+cor.test(train$SalePrice,train$OverallQual,method = "pearson",conf.level = 0.80)
+```
+
+```{r}
+cor.test(train$SalePrice,train$X1stFlrSF,method = "pearson",conf.level = 0.80)
+```
+
+```{r}
+cor.test(train$SalePrice,train$GrLivArea,method = "pearson",conf.level = 0.80)
+```
+
+```{r}
+cor.test(train$SalePrice,train$GarageArea,method = "pearson",conf.level = 0.80)
+```
+
+Each feature had a p-value less than the significance level so we reject our null hypothesis, therefore we can say the correlation between the listed independent variables and dependent variable is significant.
+
+#### FWE
+
+```{r}
+1-(1-(.2))^4
+```
+
+Our FWE came in just under 60% which is very high considering we only ran four tests. This is due to our 80% confidence interval, however I am not worried about our chances for a FWE due to the fact that each p-value is extremely low. If we were to change our CI to 95% we would still reject our null hypothesis for each test and reduce our FWE to about 18%.Once again due to our low p-values a type-1 error is very low.
