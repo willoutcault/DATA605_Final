@@ -3,10 +3,8 @@
 ```{r}
 n <- 10
 X <- runif(10000, min=1, max=n)
-hist(X)
 mn <- (n+1)/2
 Y <- rnorm(10000, mean = mn, sd = mn)
-hist(Y)
 x <- median(X)
 y <-  as.numeric(summary(y)[2])
 
@@ -151,3 +149,55 @@ Each feature had a p-value less than the significance level so we reject our nul
 ```
 
 Our FWE came in just under 60% which is very high considering we only ran four tests. This is due to our 80% confidence interval, however I am not worried about our chances for a FWE due to the fact that each p-value is extremely low. If we were to change our CI to 95% we would still reject our null hypothesis for each test and reduce our FWE to about 18%.Once again due to our low p-values a type-1 error is very low.
+
+## Linear Algebra and Correlation
+
+### Precision Matrix
+
+We will calculate the precision matrix by inverting the correlation matrix.
+
+```{r}
+library(Matrix)
+train_sub_inv <- solve(train_sub)
+train_sub_inv
+```
+
+We notice a high correlation between our selected features and sales price, especially between OverallQual and SalesPrice.
+
+To obtain our identity matrix we will multiply our precision matrix by our correlation matrix, and vice versa. We will also make sure these two results are equal.
+
+```{r}
+zapsmall(train_sub_inv %*% train_sub)
+zapsmall(train_sub %*% train_sub_inv)
+zapsmall(train_sub %*% train_sub_inv) == zapsmall(train_sub_inv %*% train_sub)
+```
+
+### LU Decomposition
+
+Finally we will perform LU decomposition. Because LU = A by multiplying our lower and upper triangualar matrices it will return our original correlation matrix.
+
+```{r}
+train_sub_lu <- lu(train_sub)
+elu <- expand(train_sub_lu)
+
+elu$L
+elu$U
+elu$L %*% elu$U == train_sub
+```
+
+## Calculus-Based Probability & Statistics
+
+Shifting
+
+```{r}
+library('MASS')
+
+hist(train$GrLivArea, breaks=20)
+
+fd <- fitdistr(train$GrLivArea, "exponential")
+
+lambda_samples <- rexp(1000, fd$estimate)
+
+hist(lambda_samples, breaks=20)
+hist(train$GrLivArea, breaks=20)
+```
