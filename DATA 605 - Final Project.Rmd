@@ -1,0 +1,313 @@
+---
+title: "DATA 605 - Final Project"
+author: "William Outcault"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r}
+require(ggplot2)
+require(corrplot)
+require(dplyr)
+library(MASS)
+```
+
+
+# Creating the Distributions 
+
+```{r}
+n <- 10
+X <- runif(10000, min=1, max=n)
+mn <- (n+1)/2
+Y <- rnorm(10000, mean = mn, sd = mn)
+x <- median(X)
+y <-  as.numeric(summary(Y)[2])
+```
+
+## Distribution Probabilites 
+
+```{r}
+a <- round(length(X[X > x]) / length(X[X>y]),4)
+b <- round(length(X[X > x & Y > y]) / length(X),4)
+c <- round(length(X[X < x & X > y]) / length(X),4)
+```
+
+## Contingency Table
+
+```{r}
+rownames = c('P(X>x)','P(X<=x)','Total')
+colnames = c('P(Y>y)','P(Y<=y)','Total')
+r1c1 = length(X[X > x & Y > y])
+r2c1 = length(X[X <= x & Y > y])
+r3c1 = r1c1 + r2c1
+r1c2 = length(X[X > x & Y <= y])
+r2c2 = length(X[X <= x & Y <= y])
+r3c2 = r1c2 + r2c2
+r1c3 = r1c1 + r1c2
+r2c3 = r2c1 + r2c2
+r3c3 = r1c3 + r2c3
+m <- matrix(c(r1c1,r2c1,r3c1,r1c2,r2c2,r3c2,r1c3,r2c3,r3c3),
+            nrow = 3,byrow=TRUE, dimnames=list(rownames,colnames))
+test <- (length(X[X>x])/length(X))*(length(X[Y>y])/length(Y))
+m 
+```
+
+Is $P(X>x, Y>y)=P(X>x)P(Y>y)$?
+
+According to our contingency table $P(X>x, Y>y) = 0.3715$. However $P(X>x)P(Y>y)=0.3741$
+
+## Testing Independence
+
+### Hypotheses
+
+H0: The variables are independent, and there is no relationship between variables.
+H1: The variables are dependent, there is a relationship between variables.
+
+### Expected Frequencies
+
+Fisher's exact test should be used given a small sample size (specifically when expected values of the contingecy table falls below 5). Adversely Chi-square test is used when you have a large enough sample size.
+
+Fisher's exact test should not be used for larger sample sizes, over Chi-square tests largely because it is too conservative and can be misleading. However the conservative nature of the Fisher's exact test provides better feedback than using Chi-square test on the same small sample.
+
+We see our frequency counts are well above 5 in our contigency table, therefore we will test using the chisq.test function. It is worth noting that if the sample size is to small, our function will produce a warning about inaccuracy, at which point we would use Fisher's exact test.
+
+### Chi-squared test
+
+```{r}
+m2 <- m[-3,-3]
+chisq.test(m2)
+```
+
+As expected our function did not produce a warning. We see our p-value from the Chi-squared test was greater than our threshold 0.05 therefore we fail to reject our null-hypothesis.
+
+### Fisher's exact test
+
+```{r}
+fisher.test(m2)
+```
+
+Our p-value was the same using the Fisher's exact test. If our sample size was larger however, we would find this test to be computationally impractical.
+
+# Advanced Regression for Housing Prices
+
+## Descriptive and Inferenctial Statistics
+
+```{r}
+train <- read.csv('https://raw.githubusercontent.com/willoutcault/DATA605_Final/master/train.csv',
+                  TRUE, ",")
+test <- read.csv('https://raw.githubusercontent.com/willoutcault/DATA605_Final/master/test.csv',
+                 TRUE, ",")
+```
+
+### Data Overview
+
+```{r}
+glimpse(train)
+```
+
+Using Dplyr's glimpse function allows us to view each columns data type as well as the size of the data frame. We are working with a 1460x81 training set. After scrolling through each feature I found a few that I felt might have a correlation with Sales Price.
+
+### Correlation
+
+```{r}
+pairs(train[ , c(18,44,47,63,81)], pch=20, col = "#69b3a2")
+```
+
+We notice a positive correlation between out features and our dependent variable, SalePrice. Using these same variables lets visualize a correlation plot.
+
+```{r}
+train_sub <- cor(train[, c(18,44,47,63,81)])
+corrplot(train_sub, method = "number", type="upper")
+```
+
+Out of the independent variables from the correlation plot we see OverallQall with the strongest correlation, and all correlations are positive. Next we will test the significance of each correlation significant.
+
+### Hypothesis Testing
+
+We want to test to see if these correlations are significant using the Pearson correlation test. We will use a confidence level of 80% therefore our significance level alpha = 0.20
+
+#### Null Hypothesis
+
+H0: The variables are independent, and there is no correlation between variables.
+H1: The variables are dependent, there is a correlation between variables.
+
+#### Pearson Tests
+
+```{r}
+cor.test(train$SalePrice,train$OverallQual,method = "pearson",conf.level = 0.80)
+```
+
+```{r}
+cor.test(train$SalePrice,train$X1stFlrSF,method = "pearson",conf.level = 0.80)
+```
+
+```{r}
+cor.test(train$SalePrice,train$GrLivArea,method = "pearson",conf.level = 0.80)
+```
+
+```{r}
+cor.test(train$SalePrice,train$GarageArea,method = "pearson",conf.level = 0.80)
+```
+
+Each feature had a p-value less than the significance level so we reject our null hypothesis, therefore we can say the correlation between the listed independent variables and dependent variable is significant.
+
+#### FWE
+
+```{r}
+1-(1-(.2))^4
+```
+
+Our FWE came in just under 60% which is very high considering we only ran four tests. This is due to our 80% confidence interval, however I am not worried about our chances for a FWE due to the fact that each p-value is extremely low. If we were to change our CI to 95% we would still reject our null hypothesis for each test and reduce our FWE to about 18%.Once again due to our low p-values a type-1 error is very low.
+
+## Linear Algebra and Correlation
+
+### Precision Matrix
+
+We will calculate the precision matrix by inverting the correlation matrix.
+
+```{r}
+library(Matrix)
+train_sub_inv <- solve(train_sub)
+train_sub_inv
+```
+
+We notice a high correlation between our selected features and sales price, especially between OverallQual and SalesPrice.
+
+To obtain our identity matrix we will multiply our precision matrix by our correlation matrix, and vice versa. We will also make sure these two results are equal.
+
+```{r}
+zapsmall(train_sub_inv %*% train_sub)
+zapsmall(train_sub %*% train_sub_inv)
+zapsmall(train_sub %*% train_sub_inv) == zapsmall(train_sub_inv %*% train_sub)
+```
+
+### LU Decomposition
+
+Finally we will perform LU decomposition. Because LU = A by multiplying our lower and upper triangualar matrices it will return our original correlation matrix.
+
+```{r}
+train_sub_lu <- lu(train_sub)
+elu <- expand(train_sub_lu)
+elu$L
+elu$U
+elu$L %*% elu$U == train_sub
+```
+
+## Calculus-Based Probability & Statistics
+
+### Exponential Distribution
+
+```{r}
+fd <- fitdistr(train$GrLivArea, "exponential")
+lambda_samples <- rexp(1000, fd$estimate)
+par(mfrow=c(1,2)) 
+hist(lambda_samples, breaks=20)
+hist(train$GrLivArea, breaks=20)
+```
+
+### 5th and 95th Percentiles
+
+#### Cumulative Distribution Function
+
+```{r}
+qexp(c(0.05, 0.95), rate = fd$estimate)
+```
+
+#### Confidence Interval 
+
+```{r}
+me <- qnorm(0.975) * (fd$sd) / sqrt(fd$n)
+c(1 - me, 1 + me)
+```
+
+#### Empirical Distribution
+
+```{r}
+quantile(train$GrLivArea, c(0.05, 0.95))
+```
+
+# Regression Model
+
+```{r}
+train <- read.csv('https://raw.githubusercontent.com/willoutcault/DATA605_Final/master/train.csv', TRUE, ",")
+test <- read.csv('https://raw.githubusercontent.com/willoutcault/DATA605_Final/master/test.csv', TRUE, ",")
+
+glimpse(train)
+```
+
+## Formatting the Data
+
+```{r}
+train$SalePrice <- log(train$SalePrice)
+test$SalePrice <- 0
+
+asNumeric <- function(x) as.numeric(factor(x))
+factorsNumeric <- function(d) modifyList(d, lapply(d[, sapply(d, is.factor)],   
+                                                    asNumeric))
+
+train <- factorsNumeric(train)
+test <- factorsNumeric(test)
+
+train[is.na(train)] <- 0
+test[is.na(test)] <- 0
+
+anyNA(train)
+anyNA(test)
+```
+
+## Training Model
+
+```{r}
+full.model <- lm(SalePrice ~., data = train)
+
+step.model <- stepAIC(full.model, direction = "forward", 
+                      trace = FALSE)
+m = summary(step.model)
+
+m$adj.r.squared
+```
+
+```{r}
+par(mfrow=c(2,2))
+
+# residuals plot ----------------------------------------------------
+
+plot(step.model$residuals ~ step.model$fitted.values) 
+abline(h = 0, lty = 3)
+       
+# residuals histogram -----------------------------------------------
+
+hist(step.model$residuals, 
+     xlab = "Residuals", ylab = "", main = "", breaks = 85,
+     xlim = c(min(step.model$residuals), max(step.model$residuals)))
+
+# normal probability plot of residuals ------------------------------
+
+qqnorm(step.model$residuals)
+qqline(step.model$residuals)
+
+# order of residuals ---------------------------------------------===
+
+plot(step.model$residuals, 
+     xlab = "Order of data collection", ylab = "Residuals", main = "")
+abline(h = 0, lty = 3)
+
+
+```
+
+```{r warning=FALSE}
+predictions <- predict(step.model, test, na.action=na.pass)
+
+predictions <- exp(predictions)
+```
+
+### Kaggle
+
+Kaggle Name: Will Outcault
+Kaggle Score: 0.14318
+
+
+
+
